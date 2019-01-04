@@ -6,6 +6,7 @@ import time
 import numpy as np
 import yaml
 import pickle
+from tensorboardX import SummaryWriter
 from collections import OrderedDict
 # torch
 import torch
@@ -15,7 +16,6 @@ from torch.autograd import Variable
 
 
 def get_parser():
-
     # parameter priority: command line > config > default
     parser = argparse.ArgumentParser(
         description='Spatial Temporal Graph Convolution Network')
@@ -35,7 +35,7 @@ def get_parser():
         '--save-score',
         type=str2bool,
         default=False,
-        help='if ture, the classification score will be stored')
+        help='if true, the classification score will be stored')
 
     # visulize and debug
     parser.add_argument(
@@ -135,6 +135,12 @@ def get_parser():
         default=80,
         help='stop training in which epoch')
     parser.add_argument(
+        '--global-step',
+        type=int,
+        default=0,
+        help='current global step for plotting'
+    )
+    parser.add_argument(
         '--weight-decay',
         type=float,
         default=0.0005,
@@ -154,6 +160,7 @@ class Processor():
         self.load_data()
         self.load_model()
         self.load_optimizer()
+        self._summary_writer = SummaryWriter(self.arg.work_dir)
 
     def load_data(self):
         Feeder = import_class(self.arg.feeder)
@@ -222,7 +229,6 @@ class Processor():
                 momentum=0.9,
                 nesterov=self.arg.nesterov,
                 weight_decay=self.arg.weight_decay)
-            optimor = optim.SGD
         elif self.arg.optimizer == 'Adam':
             self.optimizer = optim.Adam(
                 self.model.parameters(),
@@ -231,18 +237,21 @@ class Processor():
         else:
             raise ValueError()
 
-    def save_arg(self):
+    def save_arg(self, epoch=None):
         # save arg
         arg_dict = vars(self.arg)
         if not os.path.exists(self.arg.work_dir):
             os.makedirs(self.arg.work_dir)
-        with open('{}/config.yaml'.format(self.arg.work_dir), 'w') as f:
+        config_filename = 'config.yaml'
+        if epoch:
+            config_filename = 'config-{:02d}.yaml'.format(epoch + 1)
+        with open('{}/{}'.format(self.arg.work_dir, config_filename), 'w') as f:
             yaml.dump(arg_dict, f)
 
     def adjust_learning_rate(self, epoch):
         if self.arg.optimizer == 'SGD' or self.arg.optimizer == 'Adam':
             lr = self.arg.base_lr * (
-                0.1**np.sum(epoch >= np.array(self.arg.step)))
+                    0.1 ** np.sum(epoch >= np.array(self.arg.step)))
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = lr
             return lr
@@ -301,6 +310,8 @@ class Processor():
             timer['model'] += self.split_time()
 
             # statistics
+            self.arg.global_step += 1
+            self._summary_writer.add_scalar('iter_loss/train', loss.data[0], global_step=self.arg.global_step)
             if batch_idx % self.arg.log_interval == 0:
                 self.print_log(
                     '\tBatch({}/{}) done. Loss: {:.4f}  lr:{:.6f}'.format(
@@ -318,6 +329,8 @@ class Processor():
             '\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(
                 **proportion))
 
+        self._summary_writer.add_scalar('epoch_loss/train', np.mean(loss_value), global_step=epoch + 1)
+
         if save_model:
             model_path = '{}/epoch{}_model.pt'.format(self.arg.work_dir,
                                                       epoch + 1)
@@ -325,6 +338,9 @@ class Processor():
             weights = OrderedDict([[k.split('module.')[-1],
                                     v.cpu()] for k, v in state_dict.items()])
             torch.save(weights, model_path)
+
+            # save args.
+            self.save_arg(epoch=epoch)
 
     def eval(self, epoch, save_score=False, loader_name=['test']):
         self.model.eval()
@@ -350,6 +366,8 @@ class Processor():
                 zip(self.data_loader[ln].dataset.sample_name, score))
             self.print_log('\tMean {} loss of {} batches: {}.'.format(
                 ln, len(self.data_loader[ln]), np.mean(loss_value)))
+            self._summary_writer.add_scalar('epoch_loss/test', np.mean(loss_value), global_step=epoch + 1)
+
             for k in self.arg.show_topk:
                 self.print_log('\tTop{}: {:.2f}%'.format(
                     k, 100 * self.data_loader[ln].dataset.top_k(score, k)))
@@ -362,11 +380,13 @@ class Processor():
     def start(self):
         if self.arg.phase == 'train':
             self.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
-            for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
+            epoch = self.arg.start_epoch
+            while epoch < self.arg.num_epoch:
+                # for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
                 save_model = ((epoch + 1) % self.arg.save_interval == 0) or (
-                    epoch + 1 == self.arg.num_epoch)
+                        epoch + 1 == self.arg.num_epoch)
                 eval_model = ((epoch + 1) % self.arg.eval_interval == 0) or (
-                    epoch + 1 == self.arg.num_epoch)
+                        epoch + 1 == self.arg.num_epoch)
 
                 self.train(epoch, save_model=save_model)
 
@@ -377,6 +397,9 @@ class Processor():
                         loader_name=['test'])
                 else:
                     pass
+
+                epoch += 1
+                self.arg.start_epoch = epoch
 
         elif self.arg.phase == 'test':
             if self.arg.weights is None:

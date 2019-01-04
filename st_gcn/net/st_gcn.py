@@ -35,9 +35,9 @@ class Model(nn.Module):
             use_data_bn: If true, the data will first input to a batch normalization layer
             backbone_config: The structure of backbone networks
         About graph convolution:
-            graph: The graph of skeleton, represtented by a adjacency matrix
+            graph: The graph of skeleton, represented by a adjacency matrix
             graph_args: The arguments of graph
-            mask_learning: If true, use mask matrixes to reweight the adjacency matrixes
+            mask_learning: If true, use mask matrices to reweight the adjacency matrices
             use_local_bn: If true, each node in the graph have specific parameters of batch normalzation layer
         About temporal convolution:
             multiscale: If true, use multi-scale temporal convolution
@@ -97,10 +97,10 @@ class Model(nn.Module):
         # backbone
         if backbone_config is None:
             backbone_config = default_backbone
-        self.backbone = nn.ModuleList([
-            unit(in_c, out_c, stride=stride, **kwargs)
-            for in_c, out_c, stride in backbone_config
-        ])
+        # self.backbone = nn.ModuleList([
+        #     unit(in_c, out_c, stride=stride, **kwargs)
+        #     for in_c, out_c, stride in backbone_config
+        # ])
         backbone_in_c = backbone_config[0][0]
         backbone_out_c = backbone_config[-1][1]
         backbone_out_t = window_size
