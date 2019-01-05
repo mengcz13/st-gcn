@@ -1,4 +1,4 @@
-work_dir: ./work_dir/NTU-RGB-D/xsub/ST_GCN
+work_dir: ./work_dir/NTU-RGB-D/xsub/ST_GCN_debug
 
 # feeder
 feeder: st_gcn.feeder.Feeder
@@ -24,12 +24,12 @@ model_args:
   use_data_bn: True 
 
 # training
-# base_lr: 0.035
-# batch_size: 22
-base_lr: 0.01909
-batch_size: 12
+#base_lr: 0.035
+#batch_size: 22
+base_lr: 0.032
+batch_size: 20
 # device: [0,1,2,3]
-device: [1]
+device: [0]
 eval_interval: 80
 global_step: 0
 nesterov: True
