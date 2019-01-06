@@ -26,7 +26,7 @@ model_args:
 # training
 #base_lr: 0.035
 #batch_size: 22
-base_lr: 0.032
+base_lr: 0.0318
 batch_size: 20
 # device: [0,1,2,3]
 device: [0]

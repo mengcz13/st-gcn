@@ -1,4 +1,4 @@
-work_dir: ./work_dir/NTU-RGB-D/xsub/ST_GCN
+work_dir: ./work_dir/NTU-RGB-D/xsub/ST_GCN_FC
 
 # feeder
 feeder: st_gcn.feeder.Feeder
@@ -17,7 +17,7 @@ model_args:
   window_size: 300
   num_point: 25
   num_person: 2
-  graph: st_gcn.graph.NTU_RGB_D
+  graph: st_gcn.graph.NTU_RGB_D_FC
   graph_args:
     labeling_mode: 'spatial'
   mask_learning: True
@@ -31,7 +31,7 @@ model_args:
 base_lr: 0.0318
 batch_size: 20
 # device: [0,1,2,3]
-device: [0]
+device: [1]
 eval_interval: 80
 global_step: 0
 nesterov: True
